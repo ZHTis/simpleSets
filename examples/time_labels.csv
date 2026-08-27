@@ -1,0 +1,3 @@
+trial_key,start_s,end_s,include,label
+R11_trial-001,2.0,8.0,true,active_flight
+R11_trial-002,1.5,7.5,true,active_flight
