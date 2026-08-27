@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "seeg-linear-decoder"
 version = "0.1.0"
-description = "Leakage-safe channel-wise linear decoding for segmented sEEG grip data"
+description = "Leakage-safe channel-wise regression for segmented sEEG grip data"
 requires-python = ">=3.10"
 dependencies = [
   "numpy>=1.24",

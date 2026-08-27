@@ -14,8 +14,18 @@ def _csv_list(value: str | None):
     return None if not value else [item.strip() for item in value.split(",") if item.strip()]
 
 
+def _positive_int_tuple(value: str) -> tuple[int, ...]:
+    try:
+        result = tuple(int(item.strip()) for item in value.split(",") if item.strip())
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected comma-separated integers") from exc
+    if not result or any(item < 1 for item in result):
+        raise argparse.ArgumentTypeError("hidden-layer widths must be positive")
+    return result
+
+
 def parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Validate sEEG channels with trial-held-out linear decoding")
+    p = argparse.ArgumentParser(description="Validate sEEG channels with trial-held-out regression")
     p.add_argument("feature_pool", type=Path)
     p.add_argument("output_dir", type=Path)
     p.add_argument("--coordinates", type=Path, help="CSV with channel and optional x,y,z columns")
@@ -24,13 +34,51 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--features", help="Comma-separated feature names; default: all")
     p.add_argument("--target", default="force_normalized")
     p.add_argument(
-        "--model", choices=("ols", "ridge", "lasso", "elasticnet"), default="ridge",
-        help="Linear decoder branch; default: ridge",
+        "--model",
+        choices=(
+            "ols", "ridge", "lasso", "elasticnet", "glm", "spline", "tree",
+            "bayesian", "autoregressive", "mlp",
+        ),
+        default="ridge",
+        help="Regression decoder branch; default: ridge",
     )
     p.add_argument("--mask", default="mask_flight", help="Boolean window/label column; use 'none' to disable")
     p.add_argument("--folds", type=int, default=5)
     p.add_argument("--alpha", type=float, default=1.0)
     p.add_argument("--l1-ratio", type=float, default=0.5, help="Elastic Net L1 share; default: 0.5")
+    p.add_argument(
+        "--glm-family",
+        choices=("normal", "poisson", "gamma", "inverse_gaussian", "tweedie"),
+        default="normal",
+        help="GLM response distribution; default: normal",
+    )
+    p.add_argument("--glm-power", type=float, default=1.5, help="Power used by Tweedie GLM")
+    p.add_argument(
+        "--glm-link", choices=("auto", "identity", "log"), default="auto",
+        help="GLM link function; default: auto",
+    )
+    p.add_argument("--spline-knots", type=int, default=5)
+    p.add_argument("--spline-degree", type=int, default=3)
+    p.add_argument("--tree-max-depth", type=int, default=3)
+    p.add_argument("--tree-min-samples-leaf", type=int, default=20)
+    p.add_argument(
+        "--ar-lags", type=int, default=3,
+        help="Within-trial target lags for one-step autoregressive regression",
+    )
+    p.add_argument(
+        "--mlp-hidden-layers", type=_positive_int_tuple, default=(32,),
+        help="Comma-separated hidden layer widths; default: 32",
+    )
+    p.add_argument(
+        "--mlp-activation", choices=("identity", "logistic", "tanh", "relu"),
+        default="relu",
+    )
+    p.add_argument("--mlp-alpha", type=float, default=1e-4)
+    p.add_argument("--mlp-learning-rate", type=float, default=1e-3)
+    p.add_argument("--mlp-max-iter", type=int, default=500)
+    p.add_argument(
+        "--mlp-early-stopping", action=argparse.BooleanOptionalAction, default=True,
+    )
     p.add_argument("--max-iter", type=int, default=20_000)
     p.add_argument("--tol", type=float, default=1e-4)
     p.add_argument("--permutations", type=int, default=200)
@@ -49,6 +97,20 @@ def main() -> None:
         n_splits=args.folds,
         alpha=args.alpha,
         l1_ratio=args.l1_ratio,
+        glm_family=args.glm_family,
+        glm_power=args.glm_power,
+        glm_link=args.glm_link,
+        spline_n_knots=args.spline_knots,
+        spline_degree=args.spline_degree,
+        tree_max_depth=args.tree_max_depth,
+        tree_min_samples_leaf=args.tree_min_samples_leaf,
+        ar_lags=args.ar_lags,
+        mlp_hidden_layer_sizes=args.mlp_hidden_layers,
+        mlp_activation=args.mlp_activation,
+        mlp_alpha=args.mlp_alpha,
+        mlp_learning_rate_init=args.mlp_learning_rate,
+        mlp_early_stopping=args.mlp_early_stopping,
+        mlp_max_iter=args.mlp_max_iter,
         max_iter=args.max_iter,
         tol=args.tol,
         n_permutations=args.permutations,

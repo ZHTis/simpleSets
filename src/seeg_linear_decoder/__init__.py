@@ -1,4 +1,4 @@
-"""Linear decoders for leakage-safe sEEG channel validation."""
+"""Regression decoders for leakage-safe sEEG channel validation."""
 
 from .io import FeatureDataset, load_feature_dataset
 from .validation import DecoderConfig, validate_channels
